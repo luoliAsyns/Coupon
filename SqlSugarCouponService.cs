@@ -61,7 +61,7 @@ namespace CouponService
             {
                 await _sqlClient.BeginTranAsync();
 
-                var couponDto = dto.ToCouponDTO();
+                var couponDto = dto.ToCouponDTO(Program.Config.KVPairs["AppSecret2GenCoupon"]);
                 
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
                 await _sqlClient.CommitTranAsync();
