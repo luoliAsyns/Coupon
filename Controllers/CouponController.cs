@@ -26,7 +26,7 @@ public class CouponController : Controller
 
     [Time]
     [HttpGet]
-    [Route("api/coupon/query")]
+    [Route("api/coupon/query-coupon")]
     public async Task<ApiResponse<CouponDTO>> Query(
         [FromQuery] string coupon)
     {
@@ -53,7 +53,7 @@ public class CouponController : Controller
     }
     [Time]
     [HttpGet]
-    [Route("api/coupon/query")]
+    [Route("api/coupon/query-tid")]
     public async Task<ApiResponse<CouponDTO>> QueryWithTid(
        [FromQuery] string tid,
        [FromQuery] string from_platform)

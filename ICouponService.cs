@@ -12,7 +12,7 @@ namespace CouponService
         Task<ApiResponse<CouponDTO>> GenerateManualAsync(string from_platform, string tid, decimal amount);
         
         Task<ApiResponse<CouponDTO>> GetAsync(string coupon);
-        Task<ApiResponse<CouponDTO>> GetByTidAsync(string platform, string tid)
+        Task<ApiResponse<CouponDTO>> GetByTidAsync(string platform, string tid);
         Task<ApiResponse<PageResult<CouponDTO>>> GetAsync( int page = 1,
             int size = 10,
             // 可添加更多筛选条件，如订单状态、时间范围等
