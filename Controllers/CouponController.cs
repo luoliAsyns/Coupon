@@ -51,6 +51,35 @@ public class CouponController : Controller
 
         return response;
     }
+    [Time]
+    [HttpGet]
+    [Route("api/coupon/query")]
+    public async Task<ApiResponse<CouponDTO>> QueryWithTid(
+       [FromQuery] string tid,
+       [FromQuery] string from_platform)
+    {
+        _logger.Info($"trigger CouponService.Controllers.Query tid:[{tid}]");
+
+        ApiResponse<CouponDTO> response = new();
+        response.code = EResponseCode.Fail;
+        response.data = null;
+
+        try
+        {
+            response = await _couponService.GetByTidAsync(from_platform, tid);
+        }
+        catch (Exception ex)
+        {
+            response.msg = ex.Message;
+            response.code = EResponseCode.Fail;
+
+            _logger.Error("while CouponService.Controllers.Query");
+            _logger.Error(ex.Message);
+        }
+
+        return response;
+    }
+
 
     [Time]
     [HttpGet]

@@ -203,7 +203,7 @@ public class Program
                 var lokiLogger = services.GetRequiredService<LuoliCommon.Logger.ILogger>();
 
                 // 记录启动日志
-                lokiLogger.Info("应用程序启动成功");
+                lokiLogger.Info($"{Config.ServiceName}启动成功");
                 lokiLogger.Debug($"环境:{app.Environment.EnvironmentName},端口：{Config.BindAddr}");
 
 

@@ -176,7 +176,49 @@ namespace CouponService
 
             return result;
         }
+        public async Task<ApiResponse<CouponDTO>> GetByTidAsync(string platform,string tid)
+        {
+            _logger.Debug($"starting SqlSugarCouponService.GetByTidAsync with platform:[{platform}], tid:[{tid}]");
+            var result = new ApiResponse<CouponDTO>();
+            result.code = EResponseCode.Fail;
+            result.data = null;
 
+            try
+            {
+                var redisKey = $"coupon.{platform}.{tid}";
+                var couponEntity =await RedisHelper.GetAsync<CouponEntity>(redisKey);
+
+                if (!(couponEntity is null))
+                {
+                    result.code = EResponseCode.Success;
+                    result.data = couponEntity.ToDTO();
+                    result.msg = "from redis";
+                    return result;
+                }
+
+                couponEntity = await _sqlClient.Queryable<CouponEntity>()
+                    .Where(o => o.external_order_tid == tid && o.external_order_from_platform == platform && o.is_deleted == 0).FirstAsync();
+
+
+                result.code = EResponseCode.Success;
+                result.data = couponEntity.ToDTO();
+                result.msg = "from database";
+
+                if (!(result.data is null))
+                    RedisHelper.SetAsync(redisKey, couponEntity, 60);
+
+                _logger.Debug($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}]");
+
+            }
+            catch (Exception ex)
+            {
+                result.msg = ex.Message;
+                _logger.Error($"while SqlSugarCouponService.GetByTidAsync with platform:[{platform}], tid:[{tid}]");
+                _logger.Error(ex.Message);
+            }
+
+            return result;
+        }
 
         public async Task<ApiResponse<CouponDTO>> GetAsync(string coupon)
         {
