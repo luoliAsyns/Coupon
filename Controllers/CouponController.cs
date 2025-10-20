@@ -131,16 +131,11 @@ public class CouponController : Controller
         {
             var couponDto =(await _couponService.GetAsync(coupon)).data;
 
-            if (couponDto.Status == ECouponStatus.Recycled)
+            return await Update(new LuoliCommon.DTO.Coupon.UpdateRequest()
             {
-                _logger.Info($"coupon:[{couponDto.Coupon}] was invalidated already");
-                response.code = EResponseCode.Success;
-                response.data = true;
-                return response;
-            }
-
-            couponDto.Status = ECouponStatus.Recycled;
-            response = await _couponService.UpdateAsync(couponDto);
+                Coupon = couponDto,
+                Event = EEvent.Receive_Manual_Cancel_Coupon
+            });
         }
         catch (Exception ex)
         {
@@ -291,9 +286,11 @@ public class CouponController : Controller
     [HttpPost]
     [Route("api/coupon/update")]
     public async Task<ApiResponse<bool>> Update(
-        [FromBody] CouponDTO dto)
+        [FromBody] LuoliCommon.DTO.Coupon.UpdateRequest ur)
     {
         _logger.Info($"trigger CouponService.Controllers.Update");
+
+        var dto = ur.Coupon;
 
         ApiResponse<bool> response = new();
         response.code = EResponseCode.Fail;
@@ -306,6 +303,19 @@ public class CouponController : Controller
             _logger.Error($"while CouponService.Controllers.Update, not passed validate. msg:[{msg}]");
             return response;
         }
+
+
+        var rawStatus = ur.Coupon.Status;
+
+        var updateStatus = ur.UpdateStatus(ur.Coupon, ur.Event);
+        if (!updateStatus)
+        {
+            response.msg = $"coupon:[{ur.Coupon.Coupon}] raw Status:[{rawStatus}] Event:[{ur.Event.ToString()}], not meet UpdateStatus condition";
+            _logger.Error(response.msg);
+            return response;
+        }
+
+        _logger.Info($"coupon:[{ur.Coupon.Coupon}] raw Status:[{rawStatus.ToString()}] Event:[{ur.Event.ToString()}] new Status:[{ur.Coupon.Status.ToString()}]");
 
         try
         {
