@@ -71,7 +71,7 @@ namespace CouponService
                 _logger.Debug($"SqlSugarCouponService.GenerateAsync success with dto.Tid:[{dto.Tid}] coupon:[{couponDto.Coupon}]");
 
                 _channel.BasicPublishAsync(string.Empty, 
-                    RabbitMQKeys.CouponGenerated, 
+                   Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated, 
                     true, 
                     _rabbitMQMsgProps,
                     Encoding.UTF8.GetBytes(JsonSerializer.Serialize(couponDto))
@@ -118,8 +118,8 @@ namespace CouponService
                     $"SqlSugarCouponService.GenerateManualAsync success with from_platform:[{from_platform}] Tid:[{tid}] Payment:[{amount}] coupon:[{couponDto.Coupon}]");
 
                 _channel.BasicPublishAsync(
-                    string.Empty, 
-                    RabbitMQKeys.CouponGenerated, 
+                    string.Empty,
+                    Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated, 
                     true, 
                     _rabbitMQMsgProps,
                     Encoding.UTF8.GetBytes(JsonSerializer.Serialize(couponDto))
@@ -230,7 +230,7 @@ namespace CouponService
             try
             {
                 var redisKey = $"coupon.{coupon}";
-                var couponEntity = RedisHelper.Get<CouponEntity>(redisKey);
+                var couponEntity = await RedisHelper.GetAsync<CouponEntity>(redisKey);
 
                 if(!(couponEntity is null))
                 {

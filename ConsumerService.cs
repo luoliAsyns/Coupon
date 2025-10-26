@@ -14,7 +14,7 @@ namespace CouponService
     {
         private readonly IChannel _channel;
         private readonly IServiceProvider _serviceProvider;
-        private readonly string _queueName =RabbitMQKeys.ExternalOrderInserted; // 替换为你的队列名
+        private readonly string _queueName = Program.Config.KVPairs["StartWith"] + RabbitMQKeys.ExternalOrderInserted; // 替换为你的队列名
         private readonly LuoliCommon.Logger.ILogger _logger;
         public ConsumerService(IChannel channel,
              IServiceProvider serviceProvider,

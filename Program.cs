@@ -20,6 +20,8 @@ public class Program
     private static RabbitMQConnection RabbitMQConnection { get; set; }
     private static RedisConnection RedisConnection { get; set; }
 
+    public static List<string> NotifyUsers;
+
     private static bool init()
     {
         bool result = false;
@@ -32,6 +34,9 @@ public class Program
         ActionsOperator.TryCatchAction(() =>
         {
             Config = new Config($"{configFolder}/sys.json");
+            NotifyUsers = Config.KVPairs["NotifyUsers"].Split(',').Select(s => s.Trim())
+                   .Where(s => !String.IsNullOrEmpty(s)).ToList();
+
             MasterDB = new SqlSugarConnection($"{configFolder}/master_db.json");
             SlaverDB = new SqlSugarConnection($"{configFolder}/slaver_db.json");
             RabbitMQConnection = new RabbitMQConnection($"{configFolder}/rabbitmq.json");
@@ -213,6 +218,9 @@ public class Program
 
                 lokiLogger.Info($"CurrentDirectory:[{Environment.CurrentDirectory}]");
                 lokiLogger.Info($"Current File Version:[{fileVersion}]");
+
+                ApiCaller.NotifyAsync($"{Config.ServiceName}.{Config.ServiceId} v{fileVersion} 启动了", NotifyUsers);
+
             }
             catch (Exception ex)
             {
