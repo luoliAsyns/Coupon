@@ -386,7 +386,8 @@ namespace CouponService
 
                 await _sqlClient.BeginTranAsync();
                 int impactRows = await _sqlClient.Updateable(dto.ToEntity())
-                 .Where($"external_order_from_platform='{dto.ExternalOrderFromPlatform}' and external_order_tid='{dto.ExternalOrderTid}' and is_deleted='0'").ExecuteCommandAsync();
+                 .Where($"external_order_from_platform='{dto.ExternalOrderFromPlatform}' and external_order_tid='{dto.ExternalOrderTid}' and is_deleted='0'")
+                 .IgnoreColumns(it => new { it.coupon, it.external_order_from_platform, it.external_order_tid }).ExecuteCommandAsync();
                 await _sqlClient.CommitTranAsync();
                 if (impactRows != 1)
                     throw new Exception("SqlSugarCouponService.UpdateAsync impactRows not equal to 1");
