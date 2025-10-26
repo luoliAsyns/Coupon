@@ -224,12 +224,14 @@ public class CouponController : Controller
     [HttpPost]
     [Route("api/coupon/generate-manual")]
     public async Task<ApiResponse<CouponDTO>> GenerateManual(
-        [FromBody] JObject jObject)
+        [FromBody] dynamic jObject)
     {
-        string from_platform =  jObject["from_platform"]?.ToString();
-        string tid =  jObject["tid"]?.ToString();
-        decimal amount =  decimal.Parse(jObject["amount"]?.ToString());
-        
+
+        string from_platform = jObject.GetProperty("from_platform").GetString() ?? string.Empty;
+        string tid = jObject.GetProperty("tid").GetString() ?? string.Empty;
+        decimal amount = jObject.GetProperty("amount").GetDecimal();
+
+
         _logger.Info($"trigger CouponService.Controllers.GenerateManual");
 
         ApiResponse<CouponDTO> response = new();

@@ -98,7 +98,7 @@ namespace CouponService
             try
             {
                 CouponDTO couponDto = new CouponDTO();
-                couponDto.Coupon = Decoder.SHA256(from_platform + tid);
+                couponDto.Coupon = Decoder.SHA256(from_platform + tid).Substring(0,32);
                 couponDto.ExternalOrderFromPlatform = from_platform;
                 couponDto.ExternalOrderTid = tid;
                 couponDto.Payment = amount;
