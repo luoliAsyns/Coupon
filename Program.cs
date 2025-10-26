@@ -7,6 +7,7 @@ using RabbitMQ.Client;
 using SqlSugar;
 using System.Net;
 using System.Reflection;
+using ThirdApis;
 
 namespace CouponService;
 
@@ -193,6 +194,15 @@ public class Program
         builder.Services.AddScoped<ICouponService, SqlSugarCouponService>();
 
         #endregion
+
+        builder.Services.AddScoped<AsynsApis>(prov =>
+        {
+            LuoliCommon.Logger.ILogger logger = prov.GetRequiredService<LuoliCommon.Logger.ILogger>();
+#if DEBUG
+            return new AsynsApis(logger, Config.KVPairs["AsynsApiUrl"]);
+#endif
+            return new AsynsApis(logger, string.Empty);
+        });
 
         var app = builder.Build();
 

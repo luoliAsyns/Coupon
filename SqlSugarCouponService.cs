@@ -379,10 +379,10 @@ namespace CouponService
             var result = new ApiResponse<bool>();
             result.code = EResponseCode.Fail;
             result.data = false;
+            var redisKey = $"coupon.{dto.Coupon}";
 
             try
             {
-                var redisKey = $"coupon.{dto.Coupon}";
 
                 await _sqlClient.BeginTranAsync();
                 int impactRows = await _sqlClient.Updateable(dto.ToEntity())
@@ -397,7 +397,7 @@ namespace CouponService
 
                 _logger.Debug($"SqlSugarCouponService.UpdateAsync success with coupon:[{dto.Coupon}]");
 
-                RedisHelper.DelAsync(redisKey);
+               
             }
             catch (Exception ex)
             {
@@ -407,6 +407,7 @@ namespace CouponService
                 _logger.Error(ex.Message);
             }
 
+            RedisHelper.DelAsync(redisKey);
             return result;
         }
 
