@@ -54,6 +54,9 @@ namespace CouponService
 
                 try
                 {
+                    _logger.Info("Coupon.ConsumerService[For Generate Coupon] received message");
+                    _logger.Debug(message);
+
                     var dto = JsonSerializer.Deserialize<ExternalOrderDTO>(message);
                     // 使用ServiceProvider创建作用域，以便获取Controller实例
                     using (var scope = _serviceProvider.CreateScope())
@@ -66,7 +69,8 @@ namespace CouponService
                         var resp = await asynsApis.ExternalOrderQuery(dto.FromPlatform, dto.Tid);
                         if (!resp.ok)
                         {
-                            // 查询失败，requeue
+                            _logger.Error($"Coupon.ConsumerService query ExternalOrderDTO failed with FromPlatform[{dto.FromPlatform}], Tid[{dto.Tid}] so nack it");
+                            // 查询失败
                             await _channel.BasicNackAsync(
                                deliveryTag: ea.DeliveryTag,
                                multiple: false,
@@ -83,6 +87,8 @@ namespace CouponService
                         // 如果需要处理返回结果
                         if (result.ok)
                         {
+                            _logger.Info("Coupon.ConsumerService Generate Coupon success, so ack it");
+
                             // 处理成功，确认消息
                             await _channel.BasicAckAsync(
                                 deliveryTag: ea.DeliveryTag,
@@ -91,8 +97,8 @@ namespace CouponService
                         }
                         else
                         {
-                            // 处理失败，不重新入队
-                            _logger.Error("while ConsumerService, insert ExternalOrderDTO failed");
+                            // 处理失败
+                            _logger.Error("while ConsumerService call GenerateAsync, Generate Coupon failed, so nack it");
                             await _channel.BasicNackAsync(
                                 deliveryTag: ea.DeliveryTag,
                                 multiple: false,

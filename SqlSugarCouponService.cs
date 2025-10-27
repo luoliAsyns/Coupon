@@ -1,22 +1,23 @@
 ﻿using Azure.Core;
+using Dm.util;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using LuoliCommon.DTO.Coupon;
+using LuoliCommon.DTO.ExternalOrder;
 using LuoliCommon.Entities;
 using LuoliCommon.Enums;
 using LuoliCommon.Logger;
 using LuoliDatabase;
 using LuoliDatabase.Entities;
 using LuoliDatabase.Extensions;
+using LuoliUtils;
 using MethodTimer;
+using Microsoft.DotNet.PlatformAbstractions;
+using RabbitMQ.Client;
 using SqlSugar;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Dm.util;
-using LuoliCommon.DTO.ExternalOrder;
-using LuoliUtils;
-using RabbitMQ.Client;
 using Decoder = LuoliUtils.Decoder;
 using ILogger = LuoliCommon.Logger.ILogger;
 
@@ -45,7 +46,6 @@ namespace CouponService
 
         public async Task<ApiResponse<CouponDTO>> GenerateAsync(ExternalOrderDTO dto)
         {
-            _logger.Debug("starting SqlSugarCouponService.GenerateAsync ");
             var result = new ApiResponse<CouponDTO>();
             result.code= EResponseCode.Fail;
             result.data=null;
@@ -53,35 +53,43 @@ namespace CouponService
             var (valid, msg) = dto.ValidateBeforeGenCoupon();
             if (!valid)
             {
+                _logger.Warn($"GenerateAsync not passed ValidateBeforeGenCoupon with ExternalOrder.Tid[{dto.Tid}]");
+
                 result.msg= msg;
                 return result;
             }
 
+            _logger.Info($"GenerateAsync passed ValidateBeforeGenCoupon with ExternalOrder.Tid[{dto.Tid}]");
+
             try
             {
-                await _sqlClient.BeginTranAsync();
-
                 var couponDto = dto.ToCouponDTO(Program.Config.KVPairs["AppSecret2GenCoupon"]);
                 couponDto.Status = ECouponStatus.Generated;
+
+                _logger.Info($"GenerateAsync ExternalOrderDTO.ToCouponDTO success with ExternalOrder.Tid[{dto.Tid}]");
+
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
-                await _sqlClient.CommitTranAsync();
+
+                _logger.Info($"GenerateAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
+
 
                 result.code = EResponseCode.Success;
                 result.data = couponDto;
-                _logger.Debug($"SqlSugarCouponService.GenerateAsync success with dto.Tid:[{dto.Tid}] coupon:[{couponDto.Coupon}]");
 
-                _channel.BasicPublishAsync(string.Empty, 
-                   Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated, 
-                    true, 
+
+                _channel.BasicPublishAsync(string.Empty,
+                   Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated,
+                    true,
                     _rabbitMQMsgProps,
                     Encoding.UTF8.GetBytes(JsonSerializer.Serialize(couponDto))
                     );
 
+                _logger.Info($"SqlSugarCouponService.GenerateAsync success with dto.Tid:[{dto.Tid}] coupon:[{couponDto.Coupon}], sent CouponDTO to MQ[{Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated}]");
+            
             }
             catch (Exception ex)
             {
                 result.msg = ex.Message;
-                await _sqlClient.RollbackTranAsync();
                 _logger.Error($"while SqlSugarCouponService.GenerateAsync with dto.Tid:[{dto.Tid}]");
                 _logger.Error(ex.Message);
             }
@@ -97,6 +105,8 @@ namespace CouponService
 
             try
             {
+                _logger.Info($"GenerateManualAsync start new CouponDTO with from_platform[{from_platform}], tid[{tid}], amount[{amount}]");
+
                 CouponDTO couponDto = new CouponDTO();
                 couponDto.Coupon = Decoder.SHA256(from_platform + tid).Substring(0,32);
                 couponDto.ExternalOrderFromPlatform = from_platform;
@@ -107,16 +117,16 @@ namespace CouponService
                 couponDto.UpdateTime = couponDto.CreateTime;
                 couponDto.Status = ECouponStatus.Generated;
 
-                await _sqlClient.BeginTranAsync();
+                _logger.Info($"GenerateManualAsync new CouponDTO success and start inserting with from_platform[{from_platform}], tid[{tid}], amount[{amount}]");
+
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
-                await _sqlClient.CommitTranAsync();
+
+                _logger.Info($"GenerateManualAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
+
 
                 result.code = EResponseCode.Success;
                 result.data = couponDto;
                 
-                _logger.Debug(
-                    $"SqlSugarCouponService.GenerateManualAsync success with from_platform:[{from_platform}] Tid:[{tid}] Payment:[{amount}] coupon:[{couponDto.Coupon}]");
-
                 _channel.BasicPublishAsync(
                     string.Empty,
                     Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated, 
@@ -124,24 +134,22 @@ namespace CouponService
                     _rabbitMQMsgProps,
                     Encoding.UTF8.GetBytes(JsonSerializer.Serialize(couponDto))
                 );
+
+                _logger.Info($"SqlSugarCouponService.GenerateManualAsync success with coupon:[{couponDto.Coupon}], sent CouponDTO to MQ[{Program.Config.KVPairs["StartWith"] + RabbitMQKeys.CouponGenerated}]");
+
             }
             catch (Exception ex)
             {
                 result.msg = ex.Message;
-                await _sqlClient.RollbackTranAsync();
-                _logger.Error(
-                    $"while SqlSugarCouponService.GenerateManualAsync with from_platform:[{from_platform}] Tid:[{tid}] Payment:[{amount}]");
+                _logger.Error($"while SqlSugarCouponService.GenerateManualAsync with from_platform:[{from_platform}] Tid:[{tid}] Payment:[{amount}]");
                 _logger.Error(ex.Message);
             }
 
             return result;
         }
 
-
         public async Task<ApiResponse<bool>> DeleteAsync(string coupon)
         {
-            _logger.Debug("starting SqlSugarCouponService.DeleteAsync ");
-
             var redisKey = $"coupon.{coupon}";
 
             var result = new ApiResponse<bool>();
@@ -150,20 +158,29 @@ namespace CouponService
 
             try
             {
+                _logger.Info($"DeleteAsync BeginTran with coupon:[{coupon}]");
+
                 await _sqlClient.BeginTranAsync();
-               int impactRows= await _sqlClient.Updateable<object>()
-                .AS("coupon")
-                .SetColumns("is_deleted", true)
-                .Where($"coupon='{coupon}'").ExecuteCommandAsync();
-                await _sqlClient.CommitTranAsync();
+
+                int impactRows= await _sqlClient.Updateable<object>()
+                    .AS("coupon")
+                    .SetColumns("is_deleted", true)
+                    .Where($"coupon='{coupon}'")
+                    .ExecuteCommandAsync();
+
                 if (impactRows != 1)
                     throw new Exception("SqlSugarCouponService.DeleteAsync impactRows not equal to 1");
 
+                await _sqlClient.CommitTranAsync();
+
+                _logger.Info($"DeleteAsync commit success with coupon:[{coupon}]");
+
                 result.code = EResponseCode.Success;
                 result.data = true;
-                _logger.Debug($"SqlSugarCouponService.DeleteAsync success with coupon:[{coupon}]");
 
                 RedisHelper.DelAsync(redisKey);
+
+                _logger.Info($"SqlSugarCouponService.DeleteAsync success with coupon:[{coupon}], remove cache");
 
             }
             catch (Exception ex)
@@ -176,9 +193,9 @@ namespace CouponService
 
             return result;
         }
+       
         public async Task<ApiResponse<CouponDTO>> GetByTidAsync(string platform,string tid)
         {
-            _logger.Debug($"starting SqlSugarCouponService.GetByTidAsync with platform:[{platform}], tid:[{tid}]");
             var result = new ApiResponse<CouponDTO>();
             result.code = EResponseCode.Fail;
             result.data = null;
@@ -190,24 +207,30 @@ namespace CouponService
 
                 if (!(couponEntity is null))
                 {
+                    _logger.Info($"cache hit for key:[{redisKey}]");
                     result.code = EResponseCode.Success;
                     result.data = couponEntity.ToDTO();
                     result.msg = "from redis";
                     return result;
                 }
 
+                _logger.Info($"cache miss for key:[{redisKey}]");
+
                 couponEntity = await _sqlClient.Queryable<CouponEntity>()
                     .Where(o => o.external_order_tid == tid && o.external_order_from_platform == platform && o.is_deleted == 0).FirstAsync();
-
 
                 result.code = EResponseCode.Success;
                 result.data = couponEntity.ToDTO();
                 result.msg = "from database";
 
-                if (!(result.data is null))
+                if (result.data is null)
+                    _logger.Warn($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}], but data is null");
+                else
+                {
                     RedisHelper.SetAsync(redisKey, couponEntity, 60);
+                    _logger.Info($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}], add it into cache");
+                }
 
-                _logger.Debug($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}]");
 
             }
             catch (Exception ex)
@@ -222,7 +245,6 @@ namespace CouponService
 
         public async Task<ApiResponse<CouponDTO>> GetAsync(string coupon)
         {
-            _logger.Debug($"starting SqlSugarCouponService.GetAsync with coupon:[{coupon}]");
             var result = new ApiResponse<CouponDTO>();
             result.code = EResponseCode.Fail;
             result.data = null;
@@ -234,13 +256,16 @@ namespace CouponService
 
                 if(!(couponEntity is null))
                 {
+                    _logger.Info($"cache hit for key:[{redisKey}]");
                     result.code = EResponseCode.Success;
                     result.data = couponEntity.ToDTO();
                     result.msg = "from redis";
                     return result;
                 }
 
-                couponEntity= await _sqlClient.Queryable<CouponEntity>()
+                _logger.Info($"cache miss for key:[{redisKey}]");
+
+                couponEntity = await _sqlClient.Queryable<CouponEntity>()
                     .Where(o=>o.coupon == coupon && o.is_deleted == 0).FirstAsync();
               
                
@@ -248,10 +273,14 @@ namespace CouponService
                 result.data = couponEntity.ToDTO();
                 result.msg = "from database";
 
-                if (!(result.data is null))
-                    RedisHelper.SetAsync(redisKey, couponEntity, 60);
 
-                _logger.Debug($"SqlSugarCouponService.GetAsync success with coupon:[{coupon}]");
+                if (result.data is null)
+                    _logger.Warn($"SqlSugarCouponService.GetAsync success with coupon:[{coupon}], but data is null");
+                else
+                {
+                    RedisHelper.SetAsync(redisKey, couponEntity, 60);
+                    _logger.Info($"SqlSugarCouponService.GetAsync success with coupon:[{coupon}], add it into cache");
+                }
 
             }
             catch (Exception ex)
@@ -266,14 +295,13 @@ namespace CouponService
 
         public async Task<ApiResponse<List<CouponDTO>>> GetAsync(string[] coupons, ECouponStatus? status= null)
         {
-            _logger.Debug($"starting SqlSugarCouponService.GetAsync with coupons:[{string.Join(",", coupons)}]");
+
             var result = new ApiResponse<List<CouponDTO>>();
             result.code = EResponseCode.Fail;
             result.data = null;
 
             try
             {
-                
                 if (coupons is null || coupons.Length == 0)
                 {
                     result.code = EResponseCode.Success;
@@ -283,8 +311,6 @@ namespace CouponService
                     return result;
                 }
 
-            
-                
                 List<Task<CouponDTO>> tasks = coupons.Distinct().Select(async coupon =>
                 {
                     var result = await GetAsync(coupon);
@@ -302,7 +328,7 @@ namespace CouponService
                 
                 result.data = query.ToList();
                 result.code = EResponseCode.Success;
-                _logger.Debug($"SqlSugarCouponService.GetAsync success with coupons:[{string.Join(",", coupons)}]");
+                _logger.Info($"SqlSugarCouponService.GetAsync success with coupons:[{string.Join(",", coupons)}], return coupons:[{string.Join(",", result.data.Select(co=>co.Coupon))}]");
             }
             catch (Exception ex)
             {
@@ -375,7 +401,6 @@ namespace CouponService
 
         public async Task<ApiResponse<bool>> UpdateAsync(CouponDTO dto)
         {
-            _logger.Debug("starting SqlSugarCouponService.UpdateAsync ");
             var result = new ApiResponse<bool>();
             result.code = EResponseCode.Fail;
             result.data = false;
@@ -383,21 +408,28 @@ namespace CouponService
 
             try
             {
+                _logger.Info($"UpdateAsync BeginTran with CouponDTO.Coupont:[{dto.Coupon}]");
 
                 await _sqlClient.BeginTranAsync();
+
                 int impactRows = await _sqlClient.Updateable(dto.ToEntity())
-                 .Where($"external_order_from_platform='{dto.ExternalOrderFromPlatform}' and external_order_tid='{dto.ExternalOrderTid}' and is_deleted='0'")
-                 .IgnoreColumns(it => new { it.coupon, it.external_order_from_platform, it.external_order_tid }).ExecuteCommandAsync();
-                await _sqlClient.CommitTranAsync();
+                     .Where($"external_order_from_platform='{dto.ExternalOrderFromPlatform}' and external_order_tid='{dto.ExternalOrderTid}' and is_deleted='0'")
+                     .IgnoreColumns(it => new { it.coupon, it.external_order_from_platform, it.external_order_tid })
+                     .ExecuteCommandAsync();
+
                 if (impactRows != 1)
                     throw new Exception("SqlSugarCouponService.UpdateAsync impactRows not equal to 1");
+
+                await _sqlClient.CommitTranAsync();
+
+                _logger.Info($"UpdateAsync commit success with CouponDTO.Coupont:[{dto.Coupon}]");
 
                 result.code = EResponseCode.Success;
                 result.data = true;
 
-                _logger.Debug($"SqlSugarCouponService.UpdateAsync success with coupon:[{dto.Coupon}]");
+                RedisHelper.DelAsync(redisKey);
 
-               
+                _logger.Info($"SqlSugarCouponService.UpdateAsync success with coupon:[{dto.Coupon}]");
             }
             catch (Exception ex)
             {
@@ -407,7 +439,6 @@ namespace CouponService
                 _logger.Error(ex.Message);
             }
 
-            RedisHelper.DelAsync(redisKey);
             return result;
         }
 
