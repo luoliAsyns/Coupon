@@ -121,6 +121,9 @@ namespace CouponService
                 }
             };
 
+            _logger.Info($"Coupon.ConsumerService start listen MQ[{_queueName}]");
+
+
             // 开始消费
             await _channel.BasicConsumeAsync(
                 queue: _queueName,
