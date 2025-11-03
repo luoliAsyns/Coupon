@@ -70,6 +70,9 @@ namespace CouponService
 
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
 
+                RedisHelper.SAddAsync(RedisKeys.NotUsedCoupons, couponDto.Coupon);
+                RedisHelper.IncrByAsync(RedisKeys.Prom_CouponsGenerated);
+
                 _logger.Info($"GenerateAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
 
 
@@ -120,6 +123,9 @@ namespace CouponService
                 _logger.Info($"GenerateManualAsync new CouponDTO success and start inserting with from_platform[{from_platform}], tid[{tid}], amount[{amount}]");
 
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
+
+                RedisHelper.SAddAsync(RedisKeys.NotUsedCoupons, couponDto.Coupon);
+                RedisHelper.IncrByAsync(RedisKeys.Prom_CouponsGenerated);
 
                 _logger.Info($"GenerateManualAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
 

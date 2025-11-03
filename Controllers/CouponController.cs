@@ -335,4 +335,42 @@ public class CouponController : Controller
         return response;
     }
 
+    [Time]
+    [HttpPost]
+    [Route("api/coupon/update-error")]
+    public async Task<ApiResponse<bool>> UpdateErrorCode(
+        [FromBody] LuoliCommon.DTO.Coupon.UpdateErrorCodeRequest ur)
+    {
+        _logger.Info($"trigger CouponService.Controllers.UpdateErrorCode");
+
+      
+
+        ApiResponse<bool> response = new();
+        response.code = EResponseCode.Fail;
+        response.data = false;
+
+        var resp = await Query(ur.Coupon);
+        if (resp.data is null)
+        {
+            response.msg = $"coupon[{ur.Coupon}] not exist";
+            return response;
+        }
+
+        try
+        {
+            resp.data.ErrorCode = ur.ErrorCode;
+            response = await _couponService.UpdateAsync(resp.data);
+        }
+        catch (Exception ex)
+        {
+            response.msg = ex.Message;
+            response.code = EResponseCode.Fail;
+
+            _logger.Error("while CouponService.Controllers.UpdateErrorCode");
+            _logger.Error(ex.Message);
+        }
+
+        return response;
+    }
+
 }
