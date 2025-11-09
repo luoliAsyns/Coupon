@@ -341,7 +341,7 @@ public class CouponController : Controller
     public async Task<ApiResponse<bool>> UpdateErrorCode(
         [FromBody] LuoliCommon.DTO.Coupon.UpdateErrorCodeRequest ur)
     {
-        _logger.Info($"trigger CouponService.Controllers.UpdateErrorCode");
+        _logger.Info($"trigger CouponService.Controllers.UpdateErrorCode with coupon[{ur.Coupon}] errorCode[{ur.ErrorCode}]");
 
       
 

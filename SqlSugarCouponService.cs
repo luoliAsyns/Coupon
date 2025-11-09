@@ -23,7 +23,6 @@ using ILogger = LuoliCommon.Logger.ILogger;
 
 namespace CouponService
 {
-    // 实现服务接口
     public class SqlSugarCouponService : ICouponService
     {
         // 注入的依赖项
