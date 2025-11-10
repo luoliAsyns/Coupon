@@ -432,7 +432,7 @@ namespace CouponService
                 result.code = EResponseCode.Success;
                 result.data = true;
 
-                RedisHelper.DelAsync(redisKey);
+                await RedisHelper.DelAsync(redisKey);
 
                 _logger.Info($"SqlSugarCouponService.UpdateAsync success with coupon:[{dto.Coupon}]");
             }
