@@ -37,8 +37,6 @@ public class Program
         ActionsOperator.TryCatchAction(() =>
         {
             Config = new Config($"{configFolder}/sys.json");
-            NotifyUsers = Config.KVPairs["NotifyUsers"].Split(',').Select(s => s.Trim())
-                   .Where(s => !String.IsNullOrEmpty(s)).ToList();
 
             MasterDB = new SqlSugarConnection($"{configFolder}/master_db.json");
             SlaverDB = new SqlSugarConnection($"{configFolder}/slaver_db.json");
@@ -48,6 +46,8 @@ public class Program
             var rds = new CSRedis.CSRedisClient(
                 $"{RedisConnection.Host}:{RedisConnection.Port},password={RedisConnection.Password},defaultDatabase={RedisConnection.DatabaseId}");
             RedisHelper.Initialization(rds);
+
+            NotifyUsers = RedisHelper.SMembers(RedisKeys.NotifyUsers).ToList();
 
             //SqlClient.DbFirst.IsCreateAttribute().StringNullable().CreateClassFile(@"E:\Code\repos\LuoliHelper\DBModels", "LuoliHelper.DBModels");
 
