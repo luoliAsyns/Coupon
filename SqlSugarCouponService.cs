@@ -409,7 +409,7 @@ namespace CouponService
             var result = new ApiResponse<bool>();
             result.code = EResponseCode.Fail;
             result.data = false;
-            var redisKey = $"coupon.{dto.Coupon}";
+            var redisKeys = new string[]{ $"coupon.{dto.Coupon}", $"coupon.{dto.ExternalOrderFromPlatform}.{dto.ExternalOrderTid}"};
 
             try
             {
@@ -432,7 +432,8 @@ namespace CouponService
                 result.code = EResponseCode.Success;
                 result.data = true;
 
-                await RedisHelper.DelAsync(redisKey);
+                foreach(var key in redisKeys)
+                    await RedisHelper.DelAsync(key);
 
                 _logger.Info($"SqlSugarCouponService.UpdateAsync success with coupon:[{dto.Coupon}]");
             }
