@@ -15,6 +15,7 @@ using MethodTimer;
 using Microsoft.DotNet.PlatformAbstractions;
 using RabbitMQ.Client;
 using SqlSugar;
+using System.Drawing;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -254,6 +255,81 @@ namespace CouponService
             return result;
         }
 
+        public async Task<ApiResponse<IEnumerable<CouponDTO>>> PersonalCouponsAsync(
+            string coupon, 
+            string targetProxy,
+            DateTime? from,
+            DateTime? to,
+            int? limit)
+        {
+            var result = new ApiResponse<IEnumerable<CouponDTO>>();
+            result.code = EResponseCode.Fail;
+            result.data = null;
+
+            try
+            {
+                var redisKey = $"coupon.{coupon}";
+                var couponEntity = await RedisHelper.GetAsync<CouponEntity>(redisKey);
+
+                if(couponEntity is null)
+                {
+                    couponEntity = await _sqlClient.Queryable<CouponEntity>()
+                    .Where(o => o.coupon == coupon && o.is_deleted == 0).FirstAsync();
+                }
+                // 无论是redis还是数据库，先找到coupon
+                var couponDto = couponEntity.ToDTO();
+
+
+                // 通过coupon绑定的订单，来找到buyer_open_uid
+                string buyerOpenUid = await _sqlClient.Queryable<ExternalOrderEntity>()
+                    .Where(o => o.tid == couponDto.ExternalOrderTid && o.from_platform == couponDto.ExternalOrderFromPlatform)
+                    .Select(o => o.buyer_open_uid).FirstAsync();
+
+                // buyer_open_uid + targetProxy 找到相关的订单号
+                var tidQuery = _sqlClient.Queryable<ExternalOrderEntity>()
+                    .Where(o =>
+                    o.buyer_open_uid == buyerOpenUid 
+                    && o.target_proxy == targetProxy
+                    && o.is_deleted == 0
+                    );
+
+                if (from.HasValue)
+                    tidQuery = tidQuery.Where(o => o.create_time >= from.Value);
+
+                if (to.HasValue)
+                    tidQuery = tidQuery.Where(o => o.create_time <= to.Value);
+
+                var relatedEOs = await tidQuery
+                    .OrderByDescending(o => o.create_time) // 按创建时间倒序
+                    .Take(limit.HasValue ? limit.Value : 10) // 默认只取10条
+                    .ToListAsync();
+
+                // 通过订单号，找到对应的coupons
+                var relatedCoupons = relatedEOs
+                    .Select(eo => GetByTidAsync(eo.from_platform, eo.tid).Result.data)
+                    .Where(cp => !(cp is null) && (int)cp.Status >=20 );  // 只返回已消费及以上状态的卡密
+
+
+
+                result.code = EResponseCode.Success;
+                result.data = relatedCoupons;
+                result.msg = "";
+
+
+                if (result.data.Count() == 0)
+                    _logger.Warn($"SqlSugarCouponService.PersonalCouponsAsync success with coupon:[{coupon}], but data is null");
+
+            }
+            catch (Exception ex)
+            {
+                result.msg = ex.Message;
+                _logger.Error($"while SqlSugarCouponService.PersonalCouponsAsync with coupon:[{coupon}]");
+                _logger.Error(ex.Message);
+            }
+
+            return result;
+        }
+
         public async Task<ApiResponse<CouponDTO>> GetAsync(string coupon)
         {
             var result = new ApiResponse<CouponDTO>();
@@ -265,7 +341,7 @@ namespace CouponService
                 var redisKey = $"coupon.{coupon}";
                 var couponEntity = await RedisHelper.GetAsync<CouponEntity>(redisKey);
 
-                if(!(couponEntity is null))
+                if (!(couponEntity is null))
                 {
                     _logger.Info($"cache hit for key:[{redisKey}]");
                     result.code = EResponseCode.Success;
@@ -277,9 +353,9 @@ namespace CouponService
                 _logger.Info($"cache miss for key:[{redisKey}]");
 
                 couponEntity = await _sqlClient.Queryable<CouponEntity>()
-                    .Where(o=>o.coupon == coupon && o.is_deleted == 0).FirstAsync();
-              
-               
+                    .Where(o => o.coupon == coupon && o.is_deleted == 0).FirstAsync();
+
+
                 result.code = EResponseCode.Success;
                 result.data = couponEntity.ToDTO();
                 result.msg = "from database";

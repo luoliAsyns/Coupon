@@ -20,6 +20,12 @@ namespace CouponService
             DateTime? startTime = null,
             DateTime? endTime = null);
 
+        Task<ApiResponse<IEnumerable<CouponDTO>>> PersonalCouponsAsync(string coupon,
+            string targetProxy,
+            DateTime? from,
+            DateTime? to,
+            int? limit);
+
         Task<ApiResponse<List<CouponDTO>>> GetAsync(string[] coupons, ECouponStatus? status = null);
         
         Task<ApiResponse<bool>> UpdateAsync(CouponDTO dto);

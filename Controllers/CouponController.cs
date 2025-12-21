@@ -181,8 +181,40 @@ public class CouponController : Controller
         return response;
     }
 
+    [Time]
+    [HttpGet]
+    [Route("api/coupon/personal-coupons")]
+    public async Task<ApiResponse<IEnumerable<CouponDTO>>> PersonalCoupons(
+       [FromQuery] string coupon,
+       [FromQuery] string targetProxy,
+       [FromQuery] DateTime? from,
+       [FromQuery] DateTime? to,
+       [FromQuery] int? limit)
+    {
+        _logger.Info($"trigger CouponService.Controllers.PersonalCoupons");
 
-    
+        ApiResponse<IEnumerable<CouponDTO>> response = new();
+        response.code = EResponseCode.Fail;
+        response.data = null;
+
+        try
+        {
+            response = await _couponService.PersonalCouponsAsync(coupon, targetProxy, from, to , limit);
+        }
+        catch (Exception ex)
+        {
+            response.msg = ex.Message;
+            response.code = EResponseCode.Fail;
+
+            _logger.Error("while CouponService.Controllers.PersonalCoupons");
+            _logger.Error(ex.Message);
+        }
+
+        return response;
+    }
+
+
+
 
     [Time]
     [HttpPost]
