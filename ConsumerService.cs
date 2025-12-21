@@ -135,10 +135,24 @@ namespace CouponService
                 consumer: consumer,
                 stoppingToken);
 
+            removeExpiredCoupons(stoppingToken);
+
             // 保持服务运行直到应用程序停止
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(1000, stoppingToken);
+            }
+        }
+   
+    
+        private async Task removeExpiredCoupons(CancellationToken stoppingToken)
+        {
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000 * 60, stoppingToken);
+                var result = await RedisHelper.ZRemRangeByScoreAsync(RedisKeys.NotUsedCoupons, -1, TimeStampGen.GetTimeStampSec(DateTime.Now.AddDays(-1)));
+                _logger.Info($"Coupon.ConsumerService removed {result} expired coupons from [{RedisKeys.NotUsedCoupons}]");
             }
         }
     }

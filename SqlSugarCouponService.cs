@@ -69,7 +69,8 @@ namespace CouponService
 
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
 
-                RedisHelper.SAddAsync(RedisKeys.NotUsedCoupons, couponDto.Coupon);
+                await RedisHelper.ZAddAsync(RedisKeys.NotUsedCoupons,(TimeStampGen.GetTimeStampSec(couponDto.CreateTime), couponDto.Coupon));
+
                 RedisHelper.IncrByAsync(RedisKeys.Prom_CouponsGenerated);
 
                 _logger.Info($"GenerateAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
@@ -123,7 +124,8 @@ namespace CouponService
 
                 await _sqlClient.Insertable(couponDto.ToEntity()).ExecuteCommandAsync();
 
-                RedisHelper.SAddAsync(RedisKeys.NotUsedCoupons, couponDto.Coupon);
+                await RedisHelper.ZAddAsync(RedisKeys.NotUsedCoupons, (TimeStampGen.GetTimeStampSec(couponDto.CreateTime), couponDto.Coupon));
+
                 RedisHelper.IncrByAsync(RedisKeys.Prom_CouponsGenerated);
 
                 _logger.Info($"GenerateManualAsync insert into DB success with CouponDTO.Coupon[{couponDto.Coupon}]");
@@ -232,7 +234,11 @@ namespace CouponService
                     _logger.Warn($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}], but data is null");
                 else
                 {
-                    RedisHelper.SetAsync(redisKey, couponEntity, 60);
+                    int cacheStoreSec = await RedisHelper.GetAsync<int>(RedisKeys.CouponCacheStoreSec);
+                    if (cacheStoreSec <= 0)
+                        cacheStoreSec = 60;
+
+                    RedisHelper.SetAsync(redisKey, couponEntity, cacheStoreSec);
                     _logger.Info($"SqlSugarCouponService.GetByTidAsync success with platform:[{platform}], tid:[{tid}], add it into cache");
                 }
 
@@ -283,7 +289,11 @@ namespace CouponService
                     _logger.Warn($"SqlSugarCouponService.GetAsync success with coupon:[{coupon}], but data is null");
                 else
                 {
-                    RedisHelper.SetAsync(redisKey, couponEntity, 60);
+                    int cacheStoreSec = await RedisHelper.GetAsync<int>(RedisKeys.CouponCacheStoreSec);
+                    if (cacheStoreSec <= 0)
+                        cacheStoreSec = 60;
+
+                    RedisHelper.SetAsync(redisKey, couponEntity, cacheStoreSec);
                     _logger.Info($"SqlSugarCouponService.GetAsync success with coupon:[{coupon}], add it into cache");
                 }
 
