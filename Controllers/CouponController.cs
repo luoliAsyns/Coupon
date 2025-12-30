@@ -3,6 +3,7 @@ using LuoliCommon.DTO.Coupon;
 using LuoliCommon.DTO.ExternalOrder;
 using LuoliCommon.Entities;
 using LuoliCommon.Enums;
+using LuoliCommon.Interfaces;
 using LuoliCommon.Logger;
 using LuoliDatabase.Extensions;
 using MethodTimer;
@@ -12,15 +13,15 @@ using ILogger = LuoliCommon.Logger.ILogger;
 
 namespace CouponService.Controllers;
 
-public class CouponController : Controller
+public class CouponController : Controller, ICouponService
 {
     private readonly ILogger _logger;
-    private readonly ICouponService _couponService;
+    private readonly ICouponRepo _couponRepo;
 
-    public CouponController(ILogger logger, ICouponService couponService)
+    public CouponController(ILogger logger, ICouponRepo couponRepo)
     {
         _logger = logger;
-        _couponService = couponService;
+        _couponRepo = couponRepo;
     }
 
 
@@ -38,7 +39,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.GetAsync(coupon);
+            response = await _couponRepo.GetAsync(coupon);
         }
         catch (Exception ex)
         {
@@ -54,7 +55,7 @@ public class CouponController : Controller
     [Time]
     [HttpGet]
     [Route("api/coupon/query-tid")]
-    public async Task<ApiResponse<CouponDTO>> QueryWithTid(
+    public async Task<ApiResponse<CouponDTO>> Query(
        [FromQuery] string tid,
        [FromQuery] string from_platform)
     {
@@ -66,7 +67,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.GetByTidAsync(from_platform, tid);
+            response = await _couponRepo.GetByTidAsync(from_platform, tid);
         }
         catch (Exception ex)
         {
@@ -86,7 +87,7 @@ public class CouponController : Controller
     [Route("api/coupon/validate")]
     public async Task<ApiResponse<List<CouponDTO>>> Validate(
         [FromQuery] string[] coupons,
-        [FromQuery] byte? status)
+        [FromQuery] ECouponStatus status = ECouponStatus.Default)
     {
         _logger.Info($"trigger CouponService.Controllers.Validate coupons:[{string.Join(",", coupons)}]");
 
@@ -96,10 +97,10 @@ public class CouponController : Controller
 
         try
         {
-            if (status.HasValue)
-                response = await _couponService.GetAsync(coupons, (ECouponStatus)status.Value);
+            if (status != ECouponStatus.Default)
+                response = await _couponRepo.GetAsync(coupons, status);
             else
-                response = await _couponService.GetAsync(coupons, null);
+                response = await _couponRepo.GetAsync(coupons, null);
                 
         }
         catch (Exception ex)
@@ -118,9 +119,9 @@ public class CouponController : Controller
     [Time]
     [HttpPost]
     [Route("api/coupon/invalidate")]
-    public async Task<ApiResponse<bool>> Invalidate([FromBody] JsonObject fromBody)
+    public async Task<ApiResponse<bool>> Invalidate([FromBody] UpdateErrorCodeRequest fromBody)
     {
-        string coupon =fromBody["coupon"]?.ToString();
+        string coupon = fromBody.Coupon;
         _logger.Info($"trigger CouponService.Controllers.Invalidate coupon:[{coupon}]");
 
         ApiResponse<bool> response = new();
@@ -129,7 +130,7 @@ public class CouponController : Controller
 
         try
         {
-            var couponDto =(await _couponService.GetAsync(coupon)).data;
+            var couponDto =(await _couponRepo.GetAsync(coupon)).data;
 
             return await Update(new LuoliCommon.DTO.Coupon.UpdateRequest()
             {
@@ -167,7 +168,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.GetAsync(page, size, status, from, to );
+            response = await _couponRepo.GetAsync(page, size, status, from, to );
         }
         catch (Exception ex)
         {
@@ -199,7 +200,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.PersonalCouponsAsync(coupon, targetProxy, from, to , limit);
+            response = await _couponRepo.PersonalCouponsAsync(coupon, targetProxy, from, to , limit);
         }
         catch (Exception ex)
         {
@@ -238,7 +239,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.GenerateAsync(dto);
+            response = await _couponRepo.GenerateAsync(dto);
         }
         catch (Exception ex)
         {
@@ -256,12 +257,12 @@ public class CouponController : Controller
     [HttpPost]
     [Route("api/coupon/generate-manual")]
     public async Task<ApiResponse<CouponDTO>> GenerateManual(
-        [FromBody] dynamic jObject)
+        [FromBody] GenerateManualReqest jObject)
     {
 
-        string from_platform = jObject.GetProperty("from_platform").GetString() ?? string.Empty;
-        string tid = jObject.GetProperty("tid").GetString() ?? string.Empty;
-        decimal amount = jObject.GetProperty("amount").GetDecimal();
+        string from_platform = jObject.from_platform;
+        string tid = jObject.tid;
+        decimal amount = jObject.amount;
 
 
         _logger.Info($"trigger CouponService.Controllers.GenerateManual");
@@ -273,7 +274,7 @@ public class CouponController : Controller
       
         try
         {
-            response = await _couponService.GenerateManualAsync(from_platform, tid, amount);
+            response = await _couponRepo.GenerateManualAsync(from_platform, tid, amount);
         }
         catch (Exception ex)
         {
@@ -302,7 +303,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.DeleteAsync(coupon);
+            response = await _couponRepo.DeleteAsync(coupon);
         }
         catch (Exception ex)
         {
@@ -353,7 +354,7 @@ public class CouponController : Controller
 
         try
         {
-            response = await _couponService.UpdateAsync(dto);
+            response = await _couponRepo.UpdateAsync(dto);
         }
         catch (Exception ex)
         {
@@ -391,7 +392,7 @@ public class CouponController : Controller
         try
         {
             resp.data.ErrorCode = ur.ErrorCode;
-            response = await _couponService.UpdateAsync(resp.data);
+            response = await _couponRepo.UpdateAsync(resp.data);
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 ﻿using CouponService.Controllers;
 using LuoliCommon.DTO.ExternalOrder;
+using LuoliCommon.Interfaces;
 using LuoliUtils;
 using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
@@ -62,11 +63,11 @@ namespace CouponService
                     using (var scope = _serviceProvider.CreateScope())
                     {
                         // 获取你的Controller实例
-                        ICouponService cs = scope.ServiceProvider.GetRequiredService<ICouponService>();
-                        AsynsApis asynsApis = scope.ServiceProvider.GetRequiredService<AsynsApis>();
+                        ICouponRepo couponRep = scope.ServiceProvider.GetRequiredService<ICouponRepo>();
+                        IExternalOrderService  eoService = scope.ServiceProvider.GetRequiredService<IExternalOrderService>();
 
                         //这里要重新获取DTO，因为有可能改变了
-                        var resp = await asynsApis.ExternalOrderQuery(dto.FromPlatform, dto.Tid);
+                        var resp = await eoService.Get(dto.FromPlatform, dto.Tid);
                         if (!resp.ok)
                         {
                             _logger.Error($"Coupon.ConsumerService query ExternalOrderDTO failed with FromPlatform[{dto.FromPlatform}], Tid[{dto.Tid}] so nack it");
@@ -82,7 +83,7 @@ namespace CouponService
                         dto = resp.data;
 
                         // 调用Controller中的方法
-                        var result = await cs.GenerateAsync(dto);
+                        var result = await couponRep.GenerateAsync(dto);
 
                         // 如果需要处理返回结果
                         if (result.ok)

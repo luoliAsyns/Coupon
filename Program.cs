@@ -1,9 +1,11 @@
 using LuoliCommon;
+using LuoliCommon.Interfaces;
 using LuoliCommon.Logger;
 using LuoliHelper.Utils;
 using LuoliUtils;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using RabbitMQ.Client;
+using Refit;
 using SqlSugar;
 using System.Net;
 using System.Reflection;
@@ -189,17 +191,25 @@ public class Program
 
         #endregion
 
-        #region 注册 ICouponService
+        #region 注册 ICouponRepo
 
-        builder.Services.AddScoped<ICouponService, SqlSugarCouponService>();
+        builder.Services.AddScoped<ICouponRepo, SqlSugarCouponRepo>();
 
         #endregion
 
-        builder.Services.AddScoped<AsynsApis>(prov =>
-        {
-            LuoliCommon.Logger.ILogger logger = prov.GetRequiredService<LuoliCommon.Logger.ILogger>();
-            return new AsynsApis(logger, Config.KVPairs["AsynsApiUrl"]);
-        });
+        #region 注册 Refit部分   4个带数据库的服务  
+
+        builder.Services.AddRefitClient<IExternalOrderService>()
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}external-order-service:8080"));
+        //builder.Services.AddRefitClient<ICouponService>()
+        //    .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}coupon-service:8080"));
+        builder.Services.AddRefitClient<IConsumeInfoService>()
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}consume-info-service:8080"));
+        builder.Services.AddRefitClient<IUserService>()
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}user-service:8080"));
+
+        #endregion
+
 
         var app = builder.Build();
 

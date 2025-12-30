@@ -24,7 +24,7 @@ using ILogger = LuoliCommon.Logger.ILogger;
 
 namespace CouponService
 {
-    public class SqlSugarCouponService : ICouponService
+    public class SqlSugarCouponRepo : ICouponRepo
     {
         // 注入的依赖项
         private readonly ILogger _logger;
@@ -34,7 +34,7 @@ namespace CouponService
         private static  BasicProperties _rabbitMQMsgProps = new BasicProperties();
 
         // 构造函数注入
-        public SqlSugarCouponService(ILogger logger, SqlSugarClient sqlClient, IChannel channel)
+        public SqlSugarCouponRepo(ILogger logger, SqlSugarClient sqlClient, IChannel channel)
         {
             _logger = logger;
             _sqlClient = sqlClient;

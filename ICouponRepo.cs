@@ -5,7 +5,7 @@ using LuoliCommon.Enums;
 
 namespace CouponService
 {
-    public interface ICouponService
+    public interface ICouponRepo
     {
 
         Task<ApiResponse<CouponDTO>> GenerateAsync(ExternalOrderDTO dto);
