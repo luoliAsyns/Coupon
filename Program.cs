@@ -9,6 +9,8 @@ using Refit;
 using SqlSugar;
 using System.Net;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using ThirdApis;
 
 namespace CouponService;
@@ -75,6 +77,19 @@ public class Program
 
         #endregion
 
+
+        var jsonSerializerOptions = new JsonSerializerOptions
+        {
+            // 关键配置：将Enum转换为对应的数字值（整数值）
+            Converters = { new JsonStringEnumConverter(allowIntegerValues: true) },
+            // 可选：保留其他默认序列化配置（根据你的业务需求添加）
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        };
+        var refitSetting = new RefitSettings()
+        {
+            ContentSerializer = new SystemTextJsonContentSerializer(jsonSerializerOptions)
+        };
 
         var builder = WebApplication.CreateBuilder(args);
 
@@ -199,13 +214,13 @@ public class Program
 
         #region 注册 Refit部分   4个带数据库的服务  
 
-        builder.Services.AddRefitClient<IExternalOrderService>()
+        builder.Services.AddRefitClient<IExternalOrderService>(refitSetting)
             .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}external-order-service:8080"));
         //builder.Services.AddRefitClient<ICouponService>()
         //    .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}coupon-service:8080"));
-        builder.Services.AddRefitClient<IConsumeInfoService>()
+        builder.Services.AddRefitClient<IConsumeInfoService>(refitSetting)
             .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}consume-info-service:8080"));
-        builder.Services.AddRefitClient<IUserService>()
+        builder.Services.AddRefitClient<IUserService>(refitSetting)
             .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}user-service:8080"));
 
         #endregion
