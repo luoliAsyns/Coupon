@@ -53,7 +53,31 @@ public class Program
 
             NotifyUsers = RedisHelper.SMembers(RedisKeys.NotifyUsers).ToList();
 
-            //SqlClient.DbFirst.IsCreateAttribute().StringNullable().CreateClassFile(@"E:\Code\repos\LuoliHelper\DBModels", "LuoliHelper.DBModels");
+
+            //var config = new SqlSugar.ConnectionConfig
+            //{
+            //    ConnectionString =
+            //        $"server={MasterDB.Host}; port={MasterDB.Port}; user id={MasterDB.User}; password={MasterDB.Password}; database={MasterDB.Database};AllowLoadLocalInfile=true;",
+            //    DbType = (DbType)MasterDB.DBType,
+            //    IsAutoCloseConnection = true,
+
+            //    InitKeyType = InitKeyType.Attribute,
+
+            //    SlaveConnectionConfigs = new List<SlaveConnectionConfig>()
+            //    {
+            //        new SlaveConnectionConfig()
+            //        {
+            //            HitRate = 10,
+            //            ConnectionString =
+            //                $"server={SlaverDB.Host}; port={SlaverDB.Port}; user id={SlaverDB.User}; password={SlaverDB.Password}; database={SlaverDB.Database};AllowLoadLocalInfile=true;"
+            //        },
+            //    }
+            //};
+
+            //var sql = new SqlSugarClient(config);
+
+            //sql.DbFirst.IsCreateAttribute().StringNullable().CreateClassFile(@"E:\Code\repos\Common\LuoliDatabase\Entities", "LuoliDatabase.Entities");
+
 
             result = true;
         });
@@ -195,9 +219,11 @@ public class Program
 
         #endregion
 
-        #region 注册 ICouponRepo
+        #region 注册 ICouponRepo & IProxyOrderRepo & SexyteaApis
 
         builder.Services.AddScoped<ICouponRepo, SqlSugarCouponRepo>();
+        builder.Services.AddScoped<IProxyOrderRepo, SqlSugarProxyOrderRepo>();
+        builder.Services.AddScoped<SexyteaApis>();
 
         #endregion
 
