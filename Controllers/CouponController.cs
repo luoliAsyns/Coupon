@@ -257,7 +257,7 @@ public class CouponController : Controller, ICouponService
     [HttpPost]
     [Route("api/coupon/generate-manual")]
     public async Task<ApiResponse<CouponDTO>> GenerateManual(
-        [FromBody] GenerateManualReqest jObject)
+        [FromBody] GenerateManualRequest jObject)
     {
 
         string from_platform = jObject.from_platform;

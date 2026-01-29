@@ -13,7 +13,7 @@ namespace CouponService
         Task<ApiResponse<bool>> UpdateAsync(ProxyOrderDTO dto);
         Task<ApiResponse<bool>> DeleteAsync(string targetProxy, string proxyOrderId);
         Task<ApiResponse<bool>> InsertAsync(ProxyOrderDTO dto);
-
-
+        Task<ApiResponse<int>> BackUpAsync(BackUpRequest req);
+        
     }
 }

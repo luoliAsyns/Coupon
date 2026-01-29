@@ -238,6 +238,27 @@ public class Program
         builder.Services.AddRefitClient<IUserService>(refitSetting)
             .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}user-service:8080"));
 
+
+#if DEBUG
+        builder.Services.AddRefitClient<IExternalOrderService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://127.0.0.1:8081"));
+        builder.Services.AddRefitClient<IConsumeInfoService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://127.0.0.1:8083"));
+        builder.Services.AddRefitClient<IUserService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}user-service:8080"));
+#else
+
+        builder.Services.AddRefitClient<IExternalOrderService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}external-order-service:8080"));
+        //builder.Services.AddRefitClient<ICouponService>()
+        //    .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}coupon-service:8080"));
+        builder.Services.AddRefitClient<IConsumeInfoService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}consume-info-service:8080"));
+        builder.Services.AddRefitClient<IUserService>(refitSetting)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri($"http://{Config.KVPairs["StartWith"]}user-service:8080"));
+
+#endif
+
         #endregion
 
 

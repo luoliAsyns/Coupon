@@ -67,7 +67,7 @@ namespace CouponService
                 int impactRows = await _sqlClient.Updateable<object>()
                     .AS($"{targetProxy}_order")
                     .SetColumns("is_deleted", true)
-                    .Where($"target_proxy='{targetProxy}' and proxy_order_id='proxyOrderId'")
+                    .Where($"target_proxy='{targetProxy}' and proxy_order_id='{proxyOrderId}'")
                     .ExecuteCommandAsync();
 
                 if (impactRows != 1)
@@ -193,7 +193,6 @@ namespace CouponService
             return result;
         }
 
-
         private async Task GetFromLocalAsync(ApiResponse<ProxyOrderDTO> result, CouponDTO couponDTO, ExternalOrderDTO eoDTO)
         {
             // 先从缓存获取
@@ -213,8 +212,6 @@ namespace CouponService
             _logger.Info($"cache miss for key:[{redisKey}]");
 
             // 缓存未命中，从数据库获取
-
-            
             string strTargetProxy = eoDTO.TargetProxy.ToString();
 
             proxyOrderEntity = await _sqlClient.Queryable<ProxyOrderEntity>()
@@ -307,7 +304,7 @@ namespace CouponService
                 var entity = dto.ToEntity();
                 if(entity is null)
                 {
-                    result.msg = "entity is null";
+                    result.msg = "SqlSugarProxyOrderRepo.InserAsync, entity is null";
                     _logger.Warn(result.msg);
                     return result;
                 }
@@ -378,6 +375,53 @@ namespace CouponService
                 _logger.Error(ex.Message);
             }
 
+            return result;
+        }
+    
+        public async Task<ApiResponse<int>> BackUpAsync(BackUpRequest request)
+        {
+            var result = new ApiResponse<int>();
+            result.code = EResponseCode.Fail;
+            result.data = 0;
+            try
+            {
+                string strTargetProxy = request.TargetProxy.ToString();
+
+                List<string> coupons = await _sqlClient.Queryable<CouponEntity, ExternalOrderEntity>((co, eo) =>
+                        // 核心：指定 INNER JOIN 的关联条件（On 部分）
+                        co.external_order_from_platform == eo.from_platform
+                        && co.external_order_tid == eo.tid)
+                        
+                    .Where((co, eo) => co.create_time > request.From && co.create_time < request.To // 时间范围
+                                    && eo.target_proxy == strTargetProxy                            // 指定品牌
+                                    && co.proxy_order_id.Length > 3)                                // 有代理订单号
+                    .Select((co, eo) => co.coupon)
+                    .ToListAsync();
+
+                _logger.Info($"SqlSugarProxyOrderRepo.BackUpAsync found {coupons.Count} coupons between [{request.From}] and [{request.To}] in [{strTargetProxy}]");
+
+                int insertedCount = 0;
+                foreach (var coupon in coupons)
+                { 
+                    var proxyOrderResp = await GetAsync(coupon);
+                    if(proxyOrderResp.ok && proxyOrderResp.msg == "from api")
+                    {
+                        await InsertAsync(proxyOrderResp.data);
+                        insertedCount++;
+                    }
+                }
+
+                _logger.Info($"SqlSugarProxyOrderRepo.BackUpAsync inserted {insertedCount} ProxyOrder into database");
+
+                result.code = EResponseCode.Success;
+                result.data = insertedCount;
+            }
+            catch (Exception ex)
+            {
+                result.msg = ex.Message;
+                _logger.Error($"while SqlSugarProxyOrderRepo.BackUpAsync with TargetProxy:[{request.TargetProxy.ToString()}] between [{request.From}] and [{request.To}]");
+                _logger.Error(ex.Message);
+            }
             return result;
         }
     }

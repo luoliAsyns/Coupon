@@ -1,4 +1,5 @@
-﻿using LuoliCommon.DTO.ProxyOrder;
+﻿using LuoliCommon.DTO.Coupon;
+using LuoliCommon.DTO.ProxyOrder;
 using LuoliCommon.Enums;
 using LuoliCommon.Interfaces;
 using MethodTimer;
@@ -55,5 +56,19 @@ namespace CouponService.Controllers
         {
             return await _proxyOrderRepo.UpdateAsync(dto);
         }
+
+
+        [Time]
+        [HttpPost]
+        [Route("api/proxy-order/backup")]
+        public async Task<LuoliCommon.Entities.ApiResponse<int>> BackUpAsync([FromBody] BackUpRequest dto)
+        {
+            dto.From = dto.From.AddHours(-8);
+            dto.To = dto.To.AddHours(-8);
+
+            return await _proxyOrderRepo.BackUpAsync(dto);
+        }
+
+      
     }
 }
